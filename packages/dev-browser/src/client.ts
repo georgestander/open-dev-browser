@@ -1,6 +1,7 @@
 import { chromium, type Browser, type Page } from "playwright";
 import type {
   GetPageRequest,
+  GetPageResponse,
   ListPagesResponse,
   ServerInfoResponse,
 } from "./types";
@@ -31,16 +32,19 @@ export async function connect(serverUrl: string): Promise<DevBrowserClient> {
     return browser;
   }
 
-  async function findPage(b: Browser, name: string): Promise<Page | null> {
+  // Find page by CDP targetId - more reliable than JS globals
+  async function findPageByTargetId(b: Browser, targetId: string): Promise<Page | null> {
     for (const context of b.contexts()) {
       for (const page of context.pages()) {
         try {
-          const pageName = await page.evaluate(() => (globalThis as any).__devBrowserPageName);
-          if (pageName === name) {
+          const cdpSession = await context.newCDPSession(page);
+          const { targetInfo } = await cdpSession.send("Target.getTargetInfo");
+          await cdpSession.detach();
+          if (targetInfo.targetId === targetId) {
             return page;
           }
         } catch {
-          // Page might be closed or navigating
+          // Page might be closed
         }
       }
     }
@@ -60,13 +64,13 @@ export async function connect(serverUrl: string): Promise<DevBrowserClient> {
         throw new Error(`Failed to get page: ${await res.text()}`);
       }
 
-      await res.json(); // consume response
+      const { targetId } = (await res.json()) as GetPageResponse;
 
       // Connect to browser
       const b = await ensureConnected();
 
-      // Find the page
-      const page = await findPage(b, name);
+      // Find the page by targetId
+      const page = await findPageByTargetId(b, targetId);
       if (!page) {
         throw new Error(`Page "${name}" not found in browser contexts`);
       }

@@ -4,6 +4,8 @@ export interface ServeOptions {
   port?: number;
   headless?: boolean;
   cdpPort?: number;
+  /** Directory to store persistent browser profiles (cookies, localStorage, etc.) */
+  profileDir?: string;
 }
 
 export interface GetPageRequest {
@@ -13,6 +15,7 @@ export interface GetPageRequest {
 export interface GetPageResponse {
   wsEndpoint: string;
   name: string;
+  targetId: string; // CDP target ID for reliable page matching
 }
 
 export interface ListPagesResponse {

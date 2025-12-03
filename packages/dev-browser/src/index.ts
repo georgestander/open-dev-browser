@@ -1,5 +1,7 @@
 import express, { type Express, type Request, type Response } from "express";
-import { chromium, type Browser, type BrowserContext } from "playwright";
+import { chromium, type BrowserContext, type Page } from "playwright";
+import { mkdirSync } from "fs";
+import { join } from "path";
 import type {
   ServeOptions,
   GetPageRequest,
@@ -27,15 +29,28 @@ export async function serve(
   const port = options.port ?? 9222;
   const headless = options.headless ?? false;
   const cdpPort = options.cdpPort ?? 9223;
+  const profileDir = options.profileDir;
 
-  console.log("Launching browser...");
+  // Determine user data directory for persistent context
+  const userDataDir = profileDir
+    ? join(profileDir, "browser-data")
+    : join(process.cwd(), ".browser-data");
 
-  // Launch browser with CDP remote debugging enabled
-  const browser: Browser = await chromium.launch({
-    headless,
-    args: [`--remote-debugging-port=${cdpPort}`],
-  });
-  console.log("Browser launched...");
+  // Create directory if it doesn't exist
+  mkdirSync(userDataDir, { recursive: true });
+  console.log(`Using persistent browser profile: ${userDataDir}`);
+
+  console.log("Launching browser with persistent context...");
+
+  // Launch persistent context - this persists cookies, localStorage, cache, etc.
+  const context: BrowserContext = await chromium.launchPersistentContext(
+    userDataDir,
+    {
+      headless,
+      args: [`--remote-debugging-port=${cdpPort}`],
+    }
+  );
+  console.log("Browser launched with persistent profile...");
 
   // Get the CDP WebSocket endpoint from Chrome's JSON API
   const cdpResponse = await fetch(`http://127.0.0.1:${cdpPort}/json/version`);
@@ -43,8 +58,16 @@ export async function serve(
   const wsEndpoint = cdpInfo.webSocketDebuggerUrl;
   console.log(`CDP WebSocket endpoint: ${wsEndpoint}`);
 
-  // Registry: name -> BrowserContext (server owns all contexts)
-  const registry = new Map<string, BrowserContext>();
+  // Registry: name -> { page, targetId }
+  const registry = new Map<string, { page: Page; targetId: string }>();
+
+  // Helper to get CDP targetId for a page
+  async function getTargetId(page: Page): Promise<string> {
+    const cdpSession = await context.newCDPSession(page);
+    const { targetInfo } = await cdpSession.send("Target.getTargetInfo");
+    await cdpSession.detach();
+    return targetInfo.targetId;
+  }
 
   // Express server for page management
   const app: Express = express();
@@ -75,27 +98,26 @@ export async function serve(
     }
 
     // Check if page already exists
-    if (!registry.has(name)) {
-      // Create new context with init script
-      const context = await browser.newContext();
-      await context.addInitScript((pageName: string) => {
-        (globalThis as any).__devBrowserPageName = pageName;
-      }, name);
-      await context.newPage();
-      registry.set(name, context);
+    let entry = registry.get(name);
+    if (!entry) {
+      // Create new page in the persistent context
+      const page = await context.newPage();
+      const targetId = await getTargetId(page);
+      entry = { page, targetId };
+      registry.set(name, entry);
     }
 
-    const response: GetPageResponse = { wsEndpoint, name };
+    const response: GetPageResponse = { wsEndpoint, name, targetId: entry.targetId };
     res.json(response);
   });
 
   // DELETE /pages/:name - close a page
-  app.delete("/pages/:name", async (req: Request, res: Response) => {
+  app.delete("/pages/:name", async (req: Request<{ name: string }>, res: Response) => {
     const name = decodeURIComponent(req.params.name);
-    const context = registry.get(name);
+    const entry = registry.get(name);
 
-    if (context) {
-      await context.close();
+    if (entry) {
+      await entry.page.close();
       registry.delete(name);
       res.json({ success: true });
       return;
@@ -118,34 +140,31 @@ export async function serve(
     cleaningUp = true;
 
     console.log("\nShutting down...");
-    // Close all contexts
-    for (const context of registry.values()) {
+    // Close all pages
+    for (const entry of registry.values()) {
       try {
-        await context.close();
+        await entry.page.close();
       } catch {
-        // Context might already be closed
+        // Page might already be closed
       }
     }
     registry.clear();
-    // Close browser and HTTP server
+    // Close context (this also closes the browser)
     try {
-      await browser.close();
+      await context.close();
     } catch {
-      // Browser might already be closed
+      // Context might already be closed
     }
     server.close();
     console.log("Server stopped.");
   };
 
-  // Synchronous cleanup for forced exits - kills browser process directly
+  // Synchronous cleanup for forced exits
   const syncCleanup = () => {
-    if (browser.isConnected()) {
-      try {
-        // Force kill the browser process
-        browser.close();
-      } catch {
-        // Best effort
-      }
+    try {
+      context.close();
+    } catch {
+      // Best effort
     }
   };
 
