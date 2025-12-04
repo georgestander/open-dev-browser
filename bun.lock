@@ -28,7 +28,7 @@
     },
   },
   "overrides": {
-    "dev-browser": "workspace:packages/dev-browser",
+    "dev-browser": "workspace:dev-browser",
   },
   "packages": {
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.27.0", "", { "os": "aix", "cpu": "ppc64" }, "sha512-KuZrd2hRjz01y5JK9mEBSD3Vj3mbCvemhT466rSuJYeE/hjuBrHfjjcjMdTm/sz7au+++sdbJZJmuBwQLuw68A=="],

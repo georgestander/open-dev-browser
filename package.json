@@ -7,7 +7,7 @@
     "dev-browser/*"
   ],
   "overrides": {
-    "dev-browser": "workspace:packages/dev-browser"
+    "dev-browser": "workspace:dev-browser"
   },
   "devDependencies": {
     "@types/bun": "latest",
