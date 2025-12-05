@@ -1,6 +1,6 @@
 ---
 name: dev-browser
-description: Browser automation with persistent page state. Use when testing websites, debugging web apps, taking screenshots, filling forms, or automating browser interactions. Trigger on requests to: (1) navigate to and interact with websites, (2) fill out web forms, (3) take screenshots of pages, (4) extract data from web pages, (5) debug or test web applications, (6) automate multi-step browser workflows.
+description: Browser automation with persistent page state. Use when users ask to navigate websites, fill forms, take screenshots, extract web data, test web apps, or automate browser workflows. Trigger phrases include "go to [url]", "click on", "fill out the form", "take a screenshot", "scrape", "automate", "test the website", "log into", or any browser interaction request.
 ---
 
 # Dev Browser Skill
@@ -20,7 +20,7 @@ Browser automation that maintains page state across script executions. Write sma
 First, start the dev-browser server. It will automatically install Chromium on first run if needed:
 
 ```bash
-cd dev-browser && bun run start-server &
+cd skills/dev-browser && bun run start-server &
 ```
 
 The server automatically:
@@ -29,7 +29,7 @@ The server automatically:
 - Creates the `profiles/` directory for browser data persistence
 - Installs Playwright Chromium browser if not already installed
 
-**Important:** Scripts must be run with `bun x tsx` (not `bun run`) due to Playwright WebSocket compatibility:
+**Important:** Scripts must be run with `bun x tsx` (not `bun run`) due to Playwright WebSocket compatibility.
 
 The server starts a Chromium browser with a REST API for page management (default: `http://localhost:9222`).
 
@@ -102,100 +102,26 @@ Follow this pattern for complex tasks:
 4. **Decide** - is the task complete or do we need another script?
 5. **Repeat** until task is done
 
-### Example: Login Flow
-
-**Step 1: Navigate to login page**
-
-```bash
-cd skills/dev-browser && bun x tsx <<'EOF'
-import { connect, waitForPageLoad } from "@/client.js";
-
-const client = await connect("http://localhost:9222");
-const page = await client.page("auth");
-
-await page.goto("https://example.com/login");
-await waitForPageLoad(page);
-
-// Check state
-const hasLoginForm = (await page.$("form#login")) !== null;
-console.log({ url: page.url(), hasLoginForm });
-
-await client.disconnect();
-EOF
-```
-
-**Step 2: Fill credentials** (after confirming login form exists)
-
-```bash
-cd skills/dev-browser && bun x tsx <<'EOF'
-import { connect, waitForPageLoad } from "@/client.js";
-
-const client = await connect("http://localhost:9222");
-const page = await client.page("auth");
-
-await page.fill('input[name="email"]', "user@example.com");
-await page.fill('input[name="password"]', "password123");
-await page.click('button[type="submit"]');
-
-// Wait for navigation and check state
-await waitForPageLoad(page);
-const url = page.url();
-const isLoggedIn = url.includes("/dashboard");
-console.log({ url, isLoggedIn });
-
-await client.disconnect();
-EOF
-```
-
-**Step 3: Verify success** (if needed)
-
-```bash
-cd skills/dev-browser && bun x tsx <<'EOF'
-import { connect } from "@/client.js";
-
-const client = await connect("http://localhost:9222");
-const page = await client.page("auth");
-
-const welcomeText = await page.textContent("h1");
-const userMenu = (await page.$(".user-menu")) !== null;
-console.log({ welcomeText, userMenu, success: userMenu });
-
-await client.disconnect();
-EOF
-```
-
-## Common Operations
-
-### Navigation
+## Client API
 
 ```typescript
-await page.goto("https://example.com");
-await page.goBack();
-await page.reload();
+const client = await connect("http://localhost:9222");
+const page = await client.page("name"); // Get or create named page
+const pages = await client.list(); // List all page names
+await client.close("name"); // Close a page
+await client.disconnect(); // Disconnect (pages persist)
 ```
 
-### Clicking
+The `page` object is a standard Playwright Page—use normal Playwright methods.
 
-```typescript
-await page.click("button.submit");
-await page.click('a:has-text("Sign Up")');
-await page.click("nav >> text=Products");
-```
+## Waiting
 
-### Form Filling
-
-```typescript
-await page.fill('input[name="email"]', "test@example.com");
-await page.selectOption("select#country", "US");
-await page.check('input[type="checkbox"]');
-```
-
-### Waiting
+Use `waitForPageLoad(page)` after navigation (checks document.readyState and network idle):
 
 ```typescript
 import { waitForPageLoad } from "@/client.js";
 
-// Preferred: Wait for page to fully load (checks document.readyState and network idle)
+// Preferred: Wait for page to fully load
 await waitForPageLoad(page);
 
 // Wait for specific elements
@@ -203,34 +129,6 @@ await page.waitForSelector(".results");
 
 // Wait for specific URL
 await page.waitForURL("**/success");
-```
-
-### Extracting Data
-
-```typescript
-const text = await page.textContent(".message");
-const html = await page.innerHTML(".container");
-const value = await page.inputValue("input#search");
-const items = await page.$$eval(".item", (els) => els.map((e) => e.textContent));
-```
-
-### Evaluating JavaScript
-
-```typescript
-const result = await page.evaluate(() => {
-  return document.querySelectorAll(".item").length;
-});
-```
-
-## Managing Pages
-
-```typescript
-// List all pages managed by the server
-const pages = await client.list();
-console.log(pages); // ["main", "auth", "checkout"]
-
-// Close a specific page when done
-await client.close("checkout");
 ```
 
 ## Inspecting Page State
@@ -246,7 +144,7 @@ await page.screenshot({ path: "tmp/full.png", fullPage: true });
 
 ### LLM Tree (Structured DOM Inspection)
 
-For a more structured, text-based view of the page, use `getLLMTree()`. This returns a human-readable representation of interactive elements on the page, making it easier to understand page structure without parsing raw HTML.
+For a structured, text-based view of the page, use `getLLMTree()`. This returns a human-readable representation of interactive elements on the page, making it easier to understand page structure without parsing raw HTML.
 
 ```bash
 cd skills/dev-browser && bun x tsx <<'EOF'
@@ -335,37 +233,6 @@ EOF
 | **Screenshots** | Visual debugging, seeing layout/styling issues, sharing with humans             |
 | **LLM Tree**    | Understanding page structure, finding interactive elements, text-based analysis |
 | **Selectors**   | Programmatically interacting with elements found in the tree                    |
-
-### Example: Finding and Clicking a Link
-
-```bash
-cd skills/dev-browser && bun x tsx <<'EOF'
-import { connect, waitForPageLoad } from "@/client.js";
-
-const client = await connect("http://localhost:9222");
-const page = await client.page("main");
-
-await page.goto("https://example.com");
-await waitForPageLoad(page);
-
-// Step 1: Inspect the page structure
-const tree = await client.getLLMTree("main");
-console.log("Page structure:");
-console.log(tree);
-
-// Step 2: Find the element you want (say it's index 5)
-// The tree showed: [5]<a href="/products">Products</a>
-const selector = await client.getSelectorForID("main", 5);
-
-// Step 3: Click using the selector
-await page.click(selector);
-await waitForPageLoad(page);
-
-console.log("Navigated to:", page.url());
-
-await client.disconnect();
-EOF
-```
 
 ## Debugging Tips
 
