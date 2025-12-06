@@ -14,6 +14,22 @@ This plugin is optimized for **testing and verifying as you develop**. Claude ca
 | [**Playwright skill**](https://github.com/lackeyjb/playwright-skill) | Full scripts that run end-to-end                  | Fast but fragile; scripts start fresh every time, so failures mean starting over. Very context efficient.                                                                                |
 | **Dev Browser**                                                      | Stateful server + agentic script execution        | Best of both worlds. In between Playwright MCP and Playwright skill in terms of context efficiency. In practice it can be more context efficient because it is less likely to get stuck. |
 
+### Benchmarks
+
+_Averaged over 3 runs per method. See [dev-browser-eval](https://github.com/SawyerHood/dev-browser-eval) for methodology._
+
+| Method           | Time   | Cost (USD) | Turns | Success Rate |
+| ---------------- | ------ | ---------- | ----- | ------------ |
+| **Dev Browser**  | 3m 53s | $0.88      | 29    | 100% (3/3)   |
+| Playwright MCP   | 4m 31s | $1.45      | 51    | 100% (3/3)   |
+| Playwright Skill | 8m 07s | $1.45      | 38    | 67% (2/3)    |
+
+**Dev Browser advantages:**
+
+- **14% faster** than Playwright MCP, **52% faster** than Playwright Skill
+- **39% cheaper** than both alternatives
+- **43% fewer turns** than Playwright MCP, **24% fewer** than Playwright Skill
+
 **Dev Browser** runs a persistent Playwright server that maintains browser state across script executions. This means:
 
 - **Pages stay alive** - Navigate to a page once, interact with it across multiple scripts
