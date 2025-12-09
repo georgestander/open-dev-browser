@@ -9,7 +9,7 @@ Browser automation that maintains page state across script executions. Write sma
 
 ## Choosing Your Approach
 
-**Local/source-available sites**: If you have access to the source code (e.g., localhost or project files), read the code first to write selectors directly—no need for multi-script discovery.
+**Local/source-available sites**: If you have access to the source code (e.g., localhost or project files), read the code first to write selectors directly—no need for multi-script discovery. **Do NOT use ARIA snapshots when you have source code.** Direct selectors are faster, more reliable, and don't require the extra round-trip of snapshot generation.
 
 **Unknown page layouts**: If you don't know the structure of the page, use `getAISnapshot()` to discover elements and `selectSnapshotRef()` to interact with them. The ARIA snapshot provides semantic roles (button, link, heading) and stable refs that persist across script executions.
 
