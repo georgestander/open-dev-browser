@@ -9,7 +9,7 @@ import type {
   GetPageResponse,
   ListPagesResponse,
   ServerInfoResponse,
-} from "./types";
+} from "./types.js";
 
 export type { ServeOptions, GetPageResponse, ListPagesResponse, ServerInfoResponse };
 

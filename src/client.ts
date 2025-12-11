@@ -4,8 +4,8 @@ import type {
   GetPageResponse,
   ListPagesResponse,
   ServerInfoResponse,
-} from "./types";
-import { getSnapshotScript } from "./snapshot/browser-script";
+} from "./types.js";
+import { getSnapshotScript } from "./snapshot/browser-script.js";
 
 /**
  * Options for waiting for page load
@@ -252,7 +252,7 @@ export async function connect(serverUrl: string): Promise<DevBrowserClient> {
         wsEndpoint = info.wsEndpoint;
 
         // Connect to the browser via CDP
-        browser = await chromium.connectOverCDP(wsEndpoint);
+        browser = await chromium.connectOverCDP(info.wsEndpoint);
         return browser;
       } finally {
         connectingPromise = null;

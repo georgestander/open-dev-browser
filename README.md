@@ -1,94 +1,74 @@
-# Dev Browser - Claude Code Plugin
+# dev-browser-mcp
 
-A browser automation plugin for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that lets Claude control your web browser to close the loop on your development workflows.
+An MCP server for browser automation with persistent Playwright sessions. Originally based on [SawyerHood/dev-browser](https://github.com/SawyerHood/dev-browser).
 
-## Why Dev Browser?
+## Why?
 
-This plugin is optimized for **testing and verifying as you develop**. Claude can interact with your running application, fill out forms, click buttons, and verify that your changes work—all without leaving your coding session.
-
-### How It's Different
-
-| Approach                                                             | How It Works                                      | Tradeoff                                                                                                                                                                                 |
-| -------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [**Playwright MCP**](https://github.com/microsoft/playwright-mcp)    | Observe-think-act loop with individual tool calls | Simple but slow; each action is a separate round-trip. The MCP also takes up a lot of context window space.                                                                              |
-| [**Playwright skill**](https://github.com/lackeyjb/playwright-skill) | Full scripts that run end-to-end                  | Fast but fragile; scripts start fresh every time, so failures mean starting over. Very context efficient.                                                                                |
-| **Dev Browser**                                                      | Stateful server + agentic script execution        | Best of both worlds. In between Playwright MCP and Playwright skill in terms of context efficiency. In practice it can be more context efficient because it is less likely to get stuck. |
-
-**Dev Browser** runs a persistent Playwright server that maintains browser state across script executions. This means:
-
-- **Pages stay alive** - Navigate to a page once, interact with it across multiple scripts
-- **Flexible execution** - Run full Playwright scripts when the agent knows what to do, or fall back to step-by-step observation when exploring
-- **Codebase-aware** - The plugin includes instructions for Claude to look at your actual code to inform debugging
-- **LLM-friendly inspection** - Get structured DOM snapshots optimized for AI understanding, similar to browser-use
-
-In practice, Claude will often explore a page step-by-step first, then generate reusable scripts to speed up repetitive actions.
-
-## Prerequisites
-
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed
-- [Bun](https://bun.sh) runtime (v1.0 or later)
-  ```bash
-  curl -fsSL https://bun.sh/install | bash
-  ```
+Unlike standard Playwright MCP servers that create fresh browser instances, dev-browser maintains **persistent browser state** across tool calls. Pages stay alive, sessions persist, and you can iteratively explore and interact without starting over.
 
 ## Installation
 
-### Step 1: Add the Marketplace
+### For OpenCode
 
-In Claude Code, run:
-
+Add to your `opencode.json` or `~/.config/opencode/config.json`:
+```json
+{
+  "mcp": {
+    "dev-browser": {
+      "type": "local",
+      "command": ["npx", "-y", "open-dev-browser"],
+      "enabled": true
+    }
+  }
+}
 ```
-/plugin marketplace add sawyerhood/dev-browser
+
+### For Claude Desktop
+
+Add to `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "dev-browser": {
+      "command": "npx",
+      "args": ["-y", "open-dev-browser"]
+    }
+  }
+}
 ```
 
-### Step 2: Install the Plugin
+### Environment Variables
 
-```
-/plugin install dev-browser@sawyerhood/dev-browser
-```
+- `DEV_BROWSER_PORT` - HTTP API port (default: 9222)
+- `DEV_BROWSER_HEADLESS` - Run headless (default: false)
+- `DEV_BROWSER_PROFILE_DIR` - Directory for persistent browser profile
 
-### Step 3: Use It!
+## Tools
 
-Prompt Claude to use it!
-
-> **Restart Claude Code** after installation to activate the plugin.
+| Tool | Description |
+|------|-------------|
+| `browser_navigate` | Navigate to a URL |
+| `browser_snapshot` | Get AI-friendly DOM snapshot with element refs |
+| `browser_click` | Click element by ref |
+| `browser_type` | Type text into element |
+| `browser_screenshot` | Take screenshot |
+| `browser_scroll` | Scroll page |
+| `browser_run_script` | Run arbitrary Playwright script |
+| `browser_list_pages` | List open pages |
+| `browser_close_page` | Close a page |
 
 ## Usage
 
-Once installed, just ask Claude to interact with your browser. Here are some example prompts:
+Ask your AI to interact with your browser:
 
-**Testing your app:**
+- "Navigate to localhost:3000 and test the login flow"
+- "Take a snapshot of the page and click the submit button"
+- "Fill out the contact form and submit it"
 
-> "Open my local dev server at localhost:3000 and create an account to verify the signup flow"
+## Credits
 
-**Debugging UI issues:**
-
-> "Go to the settings page and figure out why the save button isn't working"
-
-**Close the loop visually**
-
-> "Can you use the frontend design skill to make the landing page more visually appealing? Use dev-browser to iterate on the design until it looks good."
-
-## Benchmarks
-
-_Averaged over 3 runs per method. See [dev-browser-eval](https://github.com/SawyerHood/dev-browser-eval) for methodology._
-
-| Method           | Time   | Cost (USD) | Turns | Success Rate |
-| ---------------- | ------ | ---------- | ----- | ------------ |
-| **Dev Browser**  | 3m 53s | $0.88      | 29    | 100% (3/3)   |
-| Playwright MCP   | 4m 31s | $1.45      | 51    | 100% (3/3)   |
-| Playwright Skill | 8m 07s | $1.45      | 38    | 67% (2/3)    |
-
-**Dev Browser advantages:**
-
-- **14% faster** than Playwright MCP, **52% faster** than Playwright Skill
-- **39% cheaper** than both alternatives
-- **43% fewer turns** than Playwright MCP, **24% fewer** than Playwright Skill
+Based on [dev-browser](https://github.com/SawyerHood/dev-browser) by Sawyer Hood.
 
 ## License
 
 MIT
-
-## Author
-
-[Sawyer Hood](https://github.com/sawyerhood)
