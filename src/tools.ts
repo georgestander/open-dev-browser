@@ -132,7 +132,7 @@ export const toolDefinitions: Tool[] = [
   {
     name: "browser_run_script",
     description:
-      "Run a Playwright script on the page. The script receives `page` (Playwright Page) and `refs` (element refs from last snapshot). Return a value to send back.",
+      "Run arbitrary JavaScript against the current Playwright page. The script receives `page` (Playwright Page) as its only argument and may return a JSON-serializable value.",
     inputSchema: {
       type: "object",
       properties: {
@@ -144,7 +144,7 @@ export const toolDefinitions: Tool[] = [
         script: {
           type: "string",
           description:
-            "JavaScript/TypeScript code. Has access to `page` (Playwright Page) and `refs` object.",
+            "JavaScript source code executed in Node with access to the current Playwright `page` object.",
         },
       },
       required: ["script"],

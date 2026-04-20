@@ -6,7 +6,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { execSync } from "child_process";
-import { existsSync, readdirSync } from "fs";
+import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { serve, type DevBrowserServer } from "./server.js";
 import { connect, type DevBrowserClient } from "./client.js";
@@ -18,6 +18,21 @@ const HEADLESS = process.env.DEV_BROWSER_HEADLESS === "true";
 let browserServer: DevBrowserServer | null = null;
 let client: DevBrowserClient | null = null;
 let playwrightChecked = false;
+
+function getPackageMetadata(): { name: string; version: string } {
+  try {
+    const packageJson = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+    const pkg = JSON.parse(packageJson) as { name?: string; version?: string };
+    return {
+      name: pkg.name || "open-dev-browser",
+      version: pkg.version || "0.0.0",
+    };
+  } catch {
+    return { name: "open-dev-browser", version: "0.0.0" };
+  }
+}
+
+const packageMetadata = getPackageMetadata();
 
 function isChromiumInstalled(): boolean {
   const homeDir = process.env.HOME || process.env.USERPROFILE || "";
@@ -57,13 +72,13 @@ function ensurePlaywrightInstalled(): void {
 async function ensureServerAndClient(): Promise<DevBrowserClient> {
   if (!browserServer) {
     ensurePlaywrightInstalled();
-    console.error("Starting dev-browser server...");
+    console.error(`Starting ${packageMetadata.name} server...`);
     browserServer = await serve({
       port: SERVER_PORT,
       headless: HEADLESS,
       profileDir: process.env.DEV_BROWSER_PROFILE_DIR,
     });
-    console.error(`Dev-browser server started on port ${SERVER_PORT}`);
+    console.error(`${packageMetadata.name} server started on port ${SERVER_PORT}`);
   }
 
   if (!client) {
@@ -76,8 +91,8 @@ async function ensureServerAndClient(): Promise<DevBrowserClient> {
 // Create MCP server
 const server = new Server(
   {
-    name: "dev-browser",
-    version: "1.0.0",
+    name: packageMetadata.name,
+    version: packageMetadata.version,
   },
   {
     capabilities: {
@@ -122,7 +137,7 @@ process.on("SIGTERM", async () => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Dev-browser MCP server running on stdio");
+  console.error(`${packageMetadata.name} MCP server running on stdio`);
 }
 
 main().catch((error) => {
